@@ -86,6 +86,13 @@ namespace reflang
 		std::string Type;
 	};
 
+	class IField : public IType
+    {
+    public:
+        virtual const std::string& GetType() const = 0;
+        virtual Reference Resolve(const Reference& o) const = 0;
+    };
+
 	class IFunction : public IType
 	{
 	public:
@@ -119,6 +126,8 @@ namespace reflang
 		virtual int GetFieldCount() const = 0;
 		virtual Reference GetField(
 				const Reference& o, const std::string& name) const = 0;
+
+		virtual std::vector<std::unique_ptr<IField>> GetFields() const = 0;
 
 		virtual int GetStaticFieldCount() const = 0;
 		virtual Reference GetStaticField(const std::string& name) const = 0;
@@ -172,6 +181,8 @@ namespace reflang
 	template <typename T> class Class;
 	template <typename T, T t> class Function;
 	template <typename T, T t> class Method;
+    template <typename T, T t> class Field;
+    template <typename T> class ReferenceField;
 
 	template <>
 	Object IFunction::operator()<>();

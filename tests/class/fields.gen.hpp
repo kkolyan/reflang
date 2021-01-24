@@ -26,6 +26,8 @@ public:
 	Reference GetField(
 			const Reference& o, const std::string& name) const override;
 
+    std::vector<std::unique_ptr<IField>> GetFields() const override;
+
 	int GetStaticFieldCount() const override;
 	Reference GetStaticField(const std::string& name) const override;
 
@@ -94,6 +96,134 @@ void Class<MyClass>::IterateStaticFields(T t)
 {
 }
 
+// MyClass methods metadata.
+template <>
+class Field<decltype(&MyClass::field), &MyClass::field> : public IField
+{
+public:
+	const std::string& GetName() const override;
+	const std::string& GetType() const override;
+    Reference Resolve(const Reference& o) const override;
+};
+
+template <>
+class Field<decltype(&MyClass::const_field), &MyClass::const_field> : public IField
+{
+public:
+	const std::string& GetName() const override;
+	const std::string& GetType() const override;
+    Reference Resolve(const Reference& o) const override;
+};
+
+template <>
+class Field<decltype(&MyClass::pointer_field), &MyClass::pointer_field> : public IField
+{
+public:
+	const std::string& GetName() const override;
+	const std::string& GetType() const override;
+    Reference Resolve(const Reference& o) const override;
+};
+
+template <>
+class Field<decltype(&MyClass::const_pointer_field), &MyClass::const_pointer_field> : public IField
+{
+public:
+	const std::string& GetName() const override;
+	const std::string& GetType() const override;
+    Reference Resolve(const Reference& o) const override;
+};
+
+template <>
+class Field<decltype(&MyClass::const_pointer_const_field), &MyClass::const_pointer_const_field> : public IField
+{
+public:
+	const std::string& GetName() const override;
+	const std::string& GetType() const override;
+    Reference Resolve(const Reference& o) const override;
+};
+
+template <>
+class ReferenceField<decltype(MyClass::ref_field)> : public IField
+{
+public:
+	const std::string& GetName() const override;
+	const std::string& GetType() const override;
+    Reference Resolve(const Reference& o) const override;
+};
+
+template <>
+class ReferenceField<decltype(MyClass::const_ref_field)> : public IField
+{
+public:
+	const std::string& GetName() const override;
+	const std::string& GetType() const override;
+    Reference Resolve(const Reference& o) const override;
+};
+
+template <>
+class Field<decltype(&MyClass::complex), &MyClass::complex> : public IField
+{
+public:
+	const std::string& GetName() const override;
+	const std::string& GetType() const override;
+    Reference Resolve(const Reference& o) const override;
+};
+
+template <>
+class Field<decltype(&MyClass::const_complex), &MyClass::const_complex> : public IField
+{
+public:
+	const std::string& GetName() const override;
+	const std::string& GetType() const override;
+    Reference Resolve(const Reference& o) const override;
+};
+
+template <>
+class Field<decltype(&MyClass::pointer_complex), &MyClass::pointer_complex> : public IField
+{
+public:
+	const std::string& GetName() const override;
+	const std::string& GetType() const override;
+    Reference Resolve(const Reference& o) const override;
+};
+
+template <>
+class Field<decltype(&MyClass::const_pointer_complex), &MyClass::const_pointer_complex> : public IField
+{
+public:
+	const std::string& GetName() const override;
+	const std::string& GetType() const override;
+    Reference Resolve(const Reference& o) const override;
+};
+
+template <>
+class Field<decltype(&MyClass::const_pointer_const_complex), &MyClass::const_pointer_const_complex> : public IField
+{
+public:
+	const std::string& GetName() const override;
+	const std::string& GetType() const override;
+    Reference Resolve(const Reference& o) const override;
+};
+
+template <>
+class ReferenceField<decltype(MyClass::ref_complex)> : public IField
+{
+public:
+	const std::string& GetName() const override;
+	const std::string& GetType() const override;
+    Reference Resolve(const Reference& o) const override;
+};
+
+template <>
+class ReferenceField<decltype(MyClass::const_ref_complex)> : public IField
+{
+public:
+	const std::string& GetName() const override;
+	const std::string& GetType() const override;
+    Reference Resolve(const Reference& o) const override;
+};
+
+// End of MyClass methods metadata.
 
 
 

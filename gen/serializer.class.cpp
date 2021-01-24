@@ -55,6 +55,45 @@ public:
 					{"%name%", "&" + c.GetFullName() + "::" + m.Name},
 				});
 	}
+    string FieldDeclaration(const Class& c, const NamedObject& m)
+    {
+        stringstream tmpl;
+        if (m.Type.find('&') == std::string::npos) {
+
+            tmpl << R"(template <>
+class Field<decltype(%name%), %name%> : public IField
+{
+public:
+	const std::string& GetName() const override;
+	const std::string& GetType() const override;
+    Reference Resolve(const Reference& o) const override;
+};
+
+)";
+            return serializer::ReplaceAll(
+                    tmpl.str(),
+                    {
+                            {"%name%", "&" + c.GetFullName() + "::" + m.Name},
+                    });
+        } else {
+
+            tmpl << R"(template <>
+class ReferenceField<decltype(%name%)> : public IField
+{
+public:
+	const std::string& GetName() const override;
+	const std::string& GetType() const override;
+    Reference Resolve(const Reference& o) const override;
+};
+
+)";
+            return serializer::ReplaceAll(
+                    tmpl.str(),
+                    {
+                            {"%name%", c.GetFullName() + "::" + m.Name},
+                    });
+        }
+    }
 
 	string MethodsDeclarations(const Class& c)
 	{
@@ -75,6 +114,26 @@ public:
 
 		return tmpl.str();
 	}
+
+    string FieldsDeclarations(const Class& c)
+    {
+        if (c.Fields.empty())
+        {
+            return string();
+        }
+
+        stringstream tmpl;
+        tmpl << "// " << c.GetFullName() << " methods metadata.\n";
+
+        for (const auto& field : c.Fields)
+        {
+            tmpl << FieldDeclaration(c, field);
+        }
+
+        tmpl << "// End of " << c.GetFullName() << " methods metadata.\n";
+
+        return tmpl.str();
+    }
 
 	string StaticMethodsDeclarations(const Class& c)
 	{
@@ -184,6 +243,82 @@ Object Method<decltype(%pointer%), %pointer%>::Invoke(
 		return tmpl.str();
 	}
 
+    string FieldDefinition(const Class& c, const NamedObject& m)
+    {
+        stringstream tmpl;
+        tmpl << R"(static std::string %escaped_name%_name = "%name%";
+static std::string %escaped_name%_type = "%type%";
+
+const std::string& %instance_expression%::GetName() const
+{
+	return %escaped_name%_name;
+}
+
+const std::string& %instance_expression%::GetType() const
+{
+    return %escaped_name%_type;
+}
+
+
+Reference %instance_expression%::Resolve(const Reference& r) const
+{
+	if (r.IsT<%class_name%>())
+	{
+		%class_name%& o = r.GetT<%class_name%>();
+        return Reference(o.%name%);
+	}
+	if (r.IsT<const %class_name%>())
+	{
+		const %class_name%& o = r.GetT<const %class_name%>();
+        return Reference(o.%name%);
+	}
+    throw Exception("Invalid Reference passed to Resolve().");
+)";
+        tmpl << R"(}
+
+)";
+        unsigned long long int i = m.Type.find('&');
+        auto ptrPrefix =
+                (i != std::string::npos)
+                ? "ReferenceField<decltype(" + c.GetFullName() + "::" + m.Name + ")>"
+                : "Field<decltype(&" + c.GetFullName() + "::" + m.Name + "), &" + c.GetFullName() + "::" + m.Name + ">";
+        std::cout << m.Name << " : " << m.Type << ", " << i << std::endl;
+        return serializer::ReplaceAll(
+                tmpl.str(),
+                {
+                        {"%class_name%", c.GetFullName()},
+                        {"%pointer%", ptrPrefix + c.GetFullName() + "::" + m.Name},
+                        {"%instance_expression%", ptrPrefix},
+                        {"%name%", m.Name},
+                        {"%type%", m.Type},
+                        {
+                         "%escaped_name%",
+                                serializer::GetNameWithoutColons(
+                                        c.GetFullName()) + "_" + m.Name
+                        }
+                });
+    }
+
+    string FieldsDefinitions(const Class& c)
+    {
+        if (c.Fields.empty())
+        {
+            return string();
+        }
+
+        stringstream tmpl;
+        tmpl << "// " << c.GetFullName() << " fields definitions.\n";
+
+        for (const auto& field : c.Fields)
+        {
+            tmpl << FieldDefinition(c, field);
+        }
+
+        tmpl << "// End of " << c.GetFullName() << " fields definitions.\n";
+
+        return tmpl.str();
+    }
+
 	map<string, vector<Function>> GetMethodsByName(
 			const Class::MethodList& methods)
 	{
@@ -224,6 +359,24 @@ Object Method<decltype(%pointer%), %pointer%>::Invoke(
 			tmpl << "	}\n";
 		}
 		return tmpl.str();
+	}
+
+	string GetFieldsImpl(const Class& c)
+	{
+        stringstream tmpl;
+        for (const auto& field : c.Fields)
+        {
+            if (field.Type.find('&') == std::string::npos) {
+                string name = "&" + c.GetFullName() + "::" + field.Name;
+                tmpl << "	results.push_back(std::make_unique<Field<decltype("
+                     << name << "), " << name << ">>());\n";
+            } else {
+                string name = c.GetFullName() + "::" + field.Name;
+                tmpl << "	results.push_back(std::make_unique<ReferenceField<decltype("
+                     << name << ")>>());\n";
+            }
+        }
+        return tmpl.str();
 	}
 
 	string GetStaticMethodImpl(const Class& c)
@@ -312,6 +465,8 @@ public:
 	Reference GetField(
 			const Reference& o, const std::string& name) const override;
 
+    std::vector<std::unique_ptr<IField>> GetFields() const override;
+
 	int GetStaticFieldCount() const override;
 	Reference GetStaticField(const std::string& name) const override;
 
@@ -352,7 +507,7 @@ void Class<%name%>::IterateStaticFields(T t)
 {
 %iterate_static_fields%}
 
-%methods_decl%%static_methods_decl%
+%methods_decl%%static_methods_decl%%fields_decl%
 )";
 
 	o << ReplaceAll(
@@ -364,9 +519,10 @@ void Class<%name%>::IterateStaticFields(T t)
 				{"%field_count%", to_string(c.Fields.size())},
 				{"%static_field_count%", to_string(c.StaticFields.size())},
 				{"%method_count%", to_string(c.Methods.size())},
-				{"%methods_decl%", MethodsDeclarations(c)},
+                {"%methods_decl%", MethodsDeclarations(c)},
 				{"%static_method_count%", to_string(c.StaticMethods.size())},
-				{"%static_methods_decl%", StaticMethodsDeclarations(c)}
+				{"%static_methods_decl%", StaticMethodsDeclarations(c)},
+                {"%fields_decl%", FieldsDeclarations(c)}
 			});
 }
 
@@ -428,6 +584,13 @@ std::vector<std::unique_ptr<IMethod>> Class<%name%>::GetMethod(const std::string
 	return results;
 }
 
+std::vector<std::unique_ptr<IField>> Class<%name%>::GetFields() const
+{
+	std::vector<std::unique_ptr<IField>> results;
+%get_fields_impl%
+	return results;
+}
+
 int Class<%name%>::GetStaticMethodCount() const
 {
 	return StaticMethodCount;
@@ -448,7 +611,7 @@ const std::string& Class<%name%>::GetName() const
 	return %escaped_name%_name;
 }
 
-%method_definitions%%static_method_definitions%
+%method_definitions%%field_definitions%%static_method_definitions%
 
 namespace
 {
@@ -474,8 +637,10 @@ namespace
 				},
 				{"%field_count%", to_string(c.Fields.size())},
 				{"%escaped_name%", GetNameWithoutColons(c.GetFullName())},
-				{"%method_definitions%", MethodsDefinitions(c)},
+                {"%method_definitions%", MethodsDefinitions(c)},
+                {"%field_definitions%", FieldsDefinitions(c)},
 				{"%get_method_impl%", GetMethodImpl(c)},
+                {"%get_fields_impl%", GetFieldsImpl(c)},
 				{"%static_method_definitions%", StaticMethodsDefinitions(c)},
 				{"%get_static_method_impl%", GetStaticMethodImpl(c)}
 			});

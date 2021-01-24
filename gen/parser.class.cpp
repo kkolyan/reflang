@@ -2,6 +2,8 @@
 
 #include "parser.util.hpp"
 
+#include <iostream>
+
 using namespace reflang;
 using namespace std;
 
@@ -38,7 +40,8 @@ namespace
 	{
 		NamedObject field;
 		field.Name = parser::Convert(clang_getCursorSpelling(cursor));
-		field.Type = parser::GetName(clang_getCursorType(cursor));
+        const CXType &type = clang_getCursorType(cursor);
+        field.Type = parser::GetName(type);
 		return field;
 	}
 
